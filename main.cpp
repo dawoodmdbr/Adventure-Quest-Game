@@ -1,17 +1,18 @@
 #include <iostream>
 #include <string>
 using namespace std;
-int MAX_SIZE = 11;
+const int MAX_SIZE = 11;
 class Player;
 class Item
 {
 protected:
-    string name;
+    string itemName;
     int x, y;
 
 public:
-    Item(string name, int x, int y) : name(name), x(x), y(y) {}
+    Item(string name, int x, int y) : itemName(name), x(x), y(y) {}
     virtual void interact(Player &player) = 0;
+    string getName() const { return itemName; }
     virtual ~Item() = default;
 };
 class coin : public Item
@@ -21,7 +22,7 @@ private:
     bool isGold = false;
 
 public:
-    coin(string n, int x, int y, int v) : Item(n, x, y), value(v) {}
+    coin(string n, int x, int y, int v, bool isGoldType = false) : Item(n, x, y), value(v), isGold(isGoldType) {}
     void interact(Player &player) override
     {
         player.updatePoints(value);
@@ -40,7 +41,7 @@ public:
     HelperObject(string n, int x, int y, int u) : Item(n, x, y), uses(u) {}
     void interact(Player &player) override
     {
-        cout << "Helper " << name << " used. Uses left: " << --uses << endl;
+        cout << "Helper " << getName() << " used. Uses left: " << --uses << endl;
     }
 };
 class Hurdle : public Item{
@@ -50,7 +51,7 @@ public:
     Hurdle(string n, int x, int y, int p): Item(n,x,y), penalty(p){}
     void interact(Player &player) override
     {
-        cout << "Hurdle " << name << " encountered. Penalty: " << penalty << endl;
+        cout << "Hurdle " << getName() << " encountered. Penalty: " << penalty << endl;
         player.updatePoints(-penalty);
     }
 };
@@ -73,7 +74,7 @@ class Player{
     void pickItem(Item *item){
         if(inventoryCount < 10){
             inventory[inventoryCount++] = item;
-            cout << "Picked up " << item->name << endl;
+            cout << "Picked up " << item->getName() << endl;
         }else{
             cout << "Inventory full!" << endl;
         }
@@ -123,7 +124,7 @@ class Board{
     void getItemAt(int x, int y){
         if(x>=0 && x<size && y>=0 && y<size){
             if(grid[x][y] != nullptr){
-                cout << "Item at (" << x << ", " << y << "): " << grid[x][y]->name << endl;
+                cout << "Item at (" << x << ", " << y << "): " << grid[x][y]->getName() << endl;
             }else{
                 cout << "No item at (" << x << ", " << y << ")" << endl;
             }
@@ -151,13 +152,13 @@ class Board{
                 if(grid[i][j]==nullptr)
                     cout<< "_" << " ";
                 else
-                    cout<< grid[i][j]->name << " ";
+                    cout<< grid[i][j]->getName() << " ";
                     
             }
             cout << endl;
         }
     }
-    
+
 };
 
 
