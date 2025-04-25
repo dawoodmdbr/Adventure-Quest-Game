@@ -5,8 +5,8 @@
 using namespace std;
 
 const char EMPTY = '.';
-const char GOLD = 'G';
-const char SILVER = 'S';
+const char SILVER_COIN = 'S';
+const char GOLD_COIN = 'G';
 const char HELPER = 'H';
 const char CENTER = 'X';
 
@@ -17,10 +17,10 @@ public:
 
     Board(int s) : size(s) {
         grid.resize(size, vector<char>(size, EMPTY));
-        placeItems(GOLD, size / 3);     // Gold coins
-        placeItems(SILVER, size / 2);   // Silver coins
-        placeItems(HELPER, size / 4);   // Helpers
-        grid[size / 2][size / 2] = CENTER; // Center cell
+        placeItems(SILVER_COIN, size);  // Silver coins
+        placeItems(GOLD_COIN, size / 2); // Gold coins
+        placeItems(HELPER, size / 4);   // Helper objects
+        grid[size / 2][size / 2] = CENTER; // Center mark
     }
 
     void placeItems(char item, int count) {
@@ -64,85 +64,129 @@ class Player {
 public:
     string name;
     int row, col;
-    int points = 10;
-    int helpers = 0;
+    int silver = 5, gold = 2, helpers = 1;
+    int blockTurns = 0;
     char hurdleToPlace = ' ';
-    bool isPlayer1;
+    int lastDir = 1;
 
-    Player(string n, int r, int c, bool p1) : name(n), row(r), col(c), isPlayer1(p1) {}
+    Player(string n, int r, int c) : name(n), row(r), col(c) {}
 
     pair<int, int> getPosition() {
         return { row, col };
     }
 
-    void move(Board &b) {
-        char cell = b.grid[row][col];
-        if (cell == GOLD) {
-            points += 10;
+    void move(Board &b, bool isP1) {
+        if (blockTurns > 0) {
+            cout << name << " is blocked for " << blockTurns << " more turns!\n";
+            blockTurns--;
+            return;
+        }
+
+        if (b.grid[row][col] == SILVER_COIN) {
+            silver++;
             b.grid[row][col] = EMPTY;
-            cout << name << " collected a Gold Coin (+10 points)!\n";
-        } else if (cell == SILVER) {
-            points += 5;
+            cout << name << " collected a silver coin!\n";
+        } else if (b.grid[row][col] == GOLD_COIN) {
+            gold++;
             b.grid[row][col] = EMPTY;
-            cout << name << " collected a Silver Coin (+5 point)!\n";
-        } else if (cell == HELPER) {
+            cout << name << " collected a gold coin!\n";
+        } else if (b.grid[row][col] == HELPER) {
             helpers++;
             b.grid[row][col] = EMPTY;
             cout << name << " collected a helper object!\n";
-        } else if (cell == 'F' || cell == 'S' || cell == 'G' || cell == 'L' || cell == 'K') {
-            cout << name << " encountered a hurdle (" << b.grid[row][col] << ")! Lost a turn.\n";
-            return; // lose turn
         }
 
-        // Zigzag movement
-        if (isPlayer1) {
-            if ((b.size - 1 - row) % 2 == 0) { // even row from bottom
-                if (col + 1 < b.size)
-                    col++;
-                else
-                    row--;
+        char cell = b.grid[row][col];
+        if (cell == 'F' || cell == 'S' || cell == 'G' || cell == 'L') {
+            if (helpers > 0) {
+                cout << "You encountered a hurdle (" << cell << "). Use helper object to skip it? (y/n): ";
+                char ch;
+                cin >> ch;
+                if (ch == 'y' || ch == 'Y') {
+                    helpers--;
+                    b.grid[row][col] = EMPTY;
+                    cout << "Helper used to skip the hurdle!\n";
+                } else {
+                    applyHurdleEffect(cell, b.size, isP1);
+                }
             } else {
-                if (col - 1 >= 0)
-                    col--;
-                else
-                    row--;
+                applyHurdleEffect(cell, b.size, isP1);
+            }
+        }
+
+        if (isP1) {
+            if ((row % 2 == 0 && col + 1 < b.size) || (row % 2 != 0 && col - 1 >= 0)) {
+                col += (row % 2 == 0) ? 1 : -1;
+            } else {
+                row--;
             }
         } else {
-            if (row % 2 == 0) { // even row from top
-                if (col - 1 >= 0)
-                    col--;
-                else
-                    row++;
+            if ((row % 2 == 0 && col - 1 >= 0) || (row % 2 != 0 && col + 1 < b.size)) {
+                col += (row % 2 == 0) ? -1 : 1;
             } else {
-                if (col + 1 < b.size)
-                    col++;
-                else
-                    row++;
+                row++;
             }
         }
     }
 
-    void placeHurdle(Board &b) {
-        int r, c;
-        cout << name << ", enter coordinates to place hurdle (" << hurdleToPlace << "): ";
-        cin >> r >> c;
-        b.placeHurdle(r, c, hurdleToPlace);
-        hurdleToPlace = ' ';
+    void applyHurdleEffect(char cell, int size, bool isP1) {
+        if (cell == 'F') {
+            blockTurns = 2;
+            cout << name << " encountered Fire! Blocked for 2 turns.\n";
+        } else if (cell == 'S') {
+            blockTurns = 3;
+            cout << name << " encountered Snake! Blocked for 3 turns and pushed back.\n";
+            for (int i = 0; i < 3; ++i) moveBack(size, isP1);
+        } else if (cell == 'G') {
+            blockTurns = 1;
+            cout << name << " encountered Ghost! Blocked for 1 turn.\n";
+        } else if (cell == 'L') {
+            blockTurns = 4;
+            cout << name << " encountered Lion! Blocked for 4 turns.\n";
+        }
+    }
+
+    void moveBack(int size, bool isP1) {
+        if (isP1) {
+            if ((row % 2 == 0 && col - 1 >= 0) || (row % 2 != 0 && col + 1 < size)) {
+                col += (row % 2 == 0) ? -1 : 1;
+            } else {
+                row++;
+            }
+        } else {
+            if ((row % 2 == 0 && col + 1 < size) || (row % 2 != 0 && col - 1 >= 0)) {
+                col += (row % 2 == 0) ? 1 : -1;
+            } else {
+                row--;
+            }
+        }
     }
 
     void buyAndPlaceHurdle(Board &b) {
-        cout << "Available hurdles: F (Fire), S (Snake), G (Ghost), L (Lion), K (Lock)\n";
-        cout << "Each costs 2 points. You have " << points << " points.\n";
-        cout << "Enter symbol of hurdle to buy: ";
+        cout << "Available options: F(5 silver), S(3 silver), G(2 silver), L(5 gold), H(2 silver - Helper object)\n";
+        cout << "You have " << silver << " silver coins, " << gold << " gold coins, and " << helpers << " helper objects.\n";
+        cout << "Enter item to buy: ";
         char h;
         cin >> h;
-        if (points >= 2 && (h == 'F' || h == 'S' || h == 'G' || h == 'L' || h == 'K')) {
-            hurdleToPlace = h;
-            points -= 2;
-            cout << "Bought hurdle: " << h << ". Now place it on the board.\n";
-            placeHurdle(b);
+
+        if ((h == 'F' && silver >= 5) || (h == 'S' && silver >= 3) || (h == 'G' && silver >= 2) || (h == 'L' && gold >= 5) || (h == 'H' && silver >= 2)) {
+            if (h == 'H') {
+                helpers++;
+                silver -= 2;
+                cout << "Bought a helper object.\n";
+                return;
+            }
+
+            int r, c;
+            cout << "Enter coordinates to place hurdle: ";
+            cin >> r >> c;
+            b.placeHurdle(r, c, h);
+            if (h == 'L') gold -= 5;
+            else if (h == 'F') silver -= 5;
+            else if (h == 'S') silver -= 3;
+            else if (h == 'G') silver -= 2;
         } else {
-            cout << "Not enough points or invalid symbol.\n";
+            cout << "Insufficient coins or invalid item!\n";
         }
     }
 
@@ -153,30 +197,31 @@ public:
 
 void playGame(int boardSize) {
     Board board(boardSize);
-    Player p1("Player 1", boardSize - 1, 0, true);
-    Player p2("Player 2", 0, boardSize - 1, false);
+    Player p1("Player 1", boardSize - 1, 0);
+    Player p2("Player 2", 0, boardSize - 1);
     bool p1Turn = true;
 
     while (true) {
+        system("cls");
         board.displayBoard(p1.getPosition(), p2.getPosition());
         Player &current = p1Turn ? p1 : p2;
-        cout << current.name << "'s turn (Points: " << current.points << ")\n";
-        cout << "1. Move\n2. Buy and Place Hurdle\nChoose action: ";
+        bool isP1 = p1Turn;
+
+        cout << current.name << "'s turn:\n1. Move\n2. Buy & Place Item\nChoose: ";
         int choice;
         cin >> choice;
 
-        switch (choice) {
-            case 1: current.move(board); break;
-            case 2: current.buyAndPlaceHurdle(board); break;
-            default: cout << "Invalid choice.\n"; continue;
-        }
+        if (choice == 1) current.move(board, isP1);
+        else if (choice == 2) current.buyAndPlaceHurdle(board);
+        else cout << "Invalid choice.\n";
 
-        if (current.atCenter(board.size / 2)) {
-            cout << current.name << " reached the center and won the game!\n";
+        if (current.atCenter(boardSize / 2)) {
+            cout << current.name << " reached the center and wins!\n";
             break;
         }
 
         p1Turn = !p1Turn;
+        system("pause");
     }
 }
 
@@ -185,7 +230,7 @@ int main() {
     int size;
     cout << "Enter board size (odd number): ";
     cin >> size;
-    if (size % 2 == 0) size += 1;
+    if (size % 2 == 0) size++;
     playGame(size);
     return 0;
 }
