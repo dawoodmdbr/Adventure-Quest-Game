@@ -337,6 +337,8 @@ void playGame(int boardSize)
             break;
         }
 
+        
+        system("pause");
         board.displayBoard(p1.getPosition(), p2.getPosition());
         cout << endl;
 
